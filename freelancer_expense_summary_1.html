@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Freelancer Expense Summary</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+<style>
+    :root {
+        --bg: #f7f4ed;
+        --surface: #ffffff;
+        --ink: #1a1a1a;
+        --ink-soft: #555;
+        --muted: #8a8577;
+        --line: #e4dfd3;
+        --accent: #0e5e3e;
+        --accent-soft: #d6e8dc;
+        --warn: #a8501c;
+        --warn-soft: #f4e4d4;
+        --shadow: 0 1px 2px rgba(26,26,26,.04), 0 8px 24px rgba(26,26,26,.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+        font-size: 14px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+    }
+    .container {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 48px 32px 80px;
+    }
+    header {
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 24px;
+        margin-bottom: 36px;
+    }
+    .eyebrow {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 10px;
+    }
+    h1 {
+        font-family: 'Fraunces', serif;
+        font-weight: 500;
+        font-size: 38px;
+        line-height: 1.1;
+        margin: 0 0 8px;
+        letter-spacing: -0.01em;
+    }
+    .sub {
+        color: var(--ink-soft);
+        font-size: 14px;
+        max-width: 640px;
+    }
+
+    .step-label {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .step-num {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 1px solid var(--muted);
+        border-radius: 50%;
+        text-align: center;
+        line-height: 19px;
+        font-size: 11px;
+    }
+
+    /* Drop zone */
+    .drop {
+        background: var(--surface);
+        border: 1.5px dashed var(--line);
+        border-radius: 10px;
+        padding: 28px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        margin-bottom: 32px;
+    }
+    .drop:hover { border-color: var(--accent); background: #fcfbf7; }
+    .drop.drag { border-color: var(--accent); background: var(--accent-soft); }
+    .drop.loaded {
+        text-align: left;
+        border-style: solid;
+        border-color: var(--accent);
+        background: var(--surface);
+    }
+    .drop h3 {
+        font-family: 'Fraunces', serif;
+        font-weight: 500;
+        font-size: 18px;
+        margin: 0 0 4px;
+    }
+    .drop p { margin: 0; color: var(--ink-soft); font-size: 13px; }
+    .drop .file-info {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    .clear-btn {
+        background: transparent;
+        border: 1px solid var(--line);
+        color: var(--ink-soft);
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
+    }
+    .clear-btn:hover { background: var(--bg); }
+
+    /* Filter card */
+    .filters {
+        display: none;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 22px 24px;
+        margin-bottom: 24px;
+    }
+    .filters.visible { display: block; }
+    .filter-row {
+        display: grid;
+        grid-template-columns: 1fr 180px 180px;
+        gap: 20px;
+        align-items: flex-end;
+    }
+    @media (max-width: 720px) {
+        .filter-row { grid-template-columns: 1fr; }
+    }
+    .filter-group label {
+        display: block;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 8px;
+    }
+
+    /* Approver chips */
+    .chip-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .chip {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 12px;
+        padding: 6px 10px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--bg);
+        color: var(--ink-soft);
+        cursor: pointer;
+        transition: all 0.15s;
+        user-select: none;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent); }
+    .chip.active {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+    }
+    .chip .count {
+        opacity: 0.7;
+        margin-left: 4px;
+        font-size: 11px;
+    }
+
+    select, input[type="search"] {
+        width: 100%;
+        font-family: inherit;
+        font-size: 14px;
+        color: var(--ink);
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 9px 12px;
+        transition: border-color 0.15s, background 0.15s;
+    }
+    select:focus, input[type="search"]:focus {
+        outline: none;
+        border-color: var(--accent);
+        background: var(--surface);
+    }
+
+    /* Search row */
+    .search-row {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px dashed var(--line);
+    }
+    .search-row label {
+        display: block;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 8px;
+    }
+
+    /* Stats bar */
+    .stats {
+        display: none;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    .stats.visible { display: grid; }
+    @media (max-width: 600px) {
+        .stats { grid-template-columns: 1fr 1fr; }
+    }
+    .stat {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px 16px;
+    }
+    .stat-label {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 4px;
+    }
+    .stat-value {
+        font-family: 'Fraunces', serif;
+        font-size: 24px;
+        font-weight: 500;
+        color: var(--ink);
+        line-height: 1.1;
+    }
+    .stat-value .unit {
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-size: 13px;
+        font-weight: 400;
+        color: var(--ink-soft);
+        margin-left: 3px;
+    }
+
+    /* Table */
+    .table-card {
+        display: none;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .table-card.visible { display: block; }
+
+    .table-header {
+        padding: 14px 20px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .table-header h3 {
+        margin: 0;
+        font-family: 'Fraunces', serif;
+        font-weight: 500;
+        font-size: 17px;
+    }
+
+    .btn {
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 7px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--ink);
+        transition: all 0.15s ease;
+    }
+    .btn:hover { background: var(--bg); border-color: var(--ink-soft); }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    thead th {
+        background: var(--surface);
+        padding: 12px 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--line);
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    thead th.num { text-align: right; }
+    tbody tr.summary {
+        cursor: pointer;
+        transition: background 0.1s;
+        border-bottom: 1px solid var(--line);
+    }
+    tbody tr.summary:hover { background: #fcfbf7; }
+    tbody tr.summary.open { background: var(--accent-soft); }
+    tbody td {
+        padding: 13px 16px;
+        vertical-align: middle;
+    }
+    tbody td.num {
+        text-align: right;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 13px;
+    }
+    tbody td.name {
+        font-weight: 500;
+        color: var(--ink);
+    }
+    tbody td.name .special {
+        display: inline-block;
+        margin-left: 6px;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+        background: var(--warn-soft);
+        color: var(--warn);
+        padding: 1px 6px;
+        border-radius: 3px;
+        letter-spacing: 0.05em;
+    }
+    tbody td .sub-val {
+        display: block;
+        font-size: 11px;
+        color: var(--muted);
+        font-family: 'IBM Plex Sans', sans-serif;
+    }
+
+    /* Expanded detail row */
+    tbody tr.detail { display: none; }
+    tbody tr.detail.open { display: table-row; }
+    tbody tr.detail td {
+        padding: 0;
+        background: var(--bg);
+        border-bottom: 1px solid var(--line);
+    }
+    .detail-inner {
+        padding: 14px 20px 16px 40px;
+    }
+    .detail-inner h4 {
+        margin: 0 0 10px;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 500;
+    }
+    .invoice-list {
+        display: table;
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .invoice-row {
+        display: table-row;
+    }
+    .invoice-row + .invoice-row > div {
+        border-top: 1px solid var(--line);
+    }
+    .invoice-cell {
+        display: table-cell;
+        padding: 8px 12px;
+        font-size: 13px;
+        vertical-align: middle;
+    }
+    .invoice-cell.date {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+        width: 90px;
+    }
+    .invoice-cell.title { color: var(--ink); }
+    .invoice-cell.eps {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 12px;
+        text-align: right;
+        color: var(--accent);
+        white-space: nowrap;
+        width: 60px;
+    }
+    .invoice-cell.amt {
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 13px;
+        text-align: right;
+        white-space: nowrap;
+        width: 90px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 24px;
+        color: var(--muted);
+    }
+    .empty-state p { margin: 0; }
+
+    footer {
+        margin-top: 44px;
+        padding-top: 24px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .toast {
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        padding: 14px 18px;
+        background: var(--ink);
+        color: var(--surface);
+        border-radius: 8px;
+        font-size: 14px;
+        box-shadow: var(--shadow);
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.2s ease;
+        pointer-events: none;
+        z-index: 100;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { background: var(--accent); }
+    .toast.error { background: var(--warn); }
+</style>
+</head>
+
+<body>
+<div class="container">
+    <header>
+        <div class="eyebrow">Worksuite · Freelancer Expense Summary</div>
+        <h1>Monthly expense summary</h1>
+        <p class="sub">Drop in a Worksuite payments export to see per-freelancer totals, episode counts, and cost-per-episode averages for any work month. Invoices are grouped by <b>work month</b> (accrual basis) — parsed from the invoice title, with the freelancer's submission date as a fallback.</p>
+    </header>
+
+    <!-- Upload -->
+    <div class="step-label"><span class="step-num">1</span> Upload Worksuite CSV</div>
+    <div class="drop" id="csvDrop">
+        <div id="csvEmpty">
+            <h3>Drop a Worksuite payments CSV</h3>
+            <p>or click to browse · runs entirely in your browser</p>
+        </div>
+        <div id="csvLoaded" style="display:none;">
+            <div class="file-info">
+                <div>
+                    <h3 id="csvName">—</h3>
+                    <p id="csvStatus">—</p>
+                </div>
+                <button class="clear-btn" id="csvClear">Replace</button>
+            </div>
+        </div>
+    </div>
+    <input type="file" id="csvInput" accept=".csv,text/csv" style="display:none;">
+
+    <!-- Filters -->
+    <div class="filters" id="filters">
+        <div class="step-label" style="margin-bottom:14px;">
+            <span class="step-num">2</span> Filter
+        </div>
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>Approver (click to toggle)</label>
+                <div class="chip-group" id="approverChips"></div>
+            </div>
+            <div class="filter-group">
+                <label>Work month</label>
+                <select id="monthSelect"></select>
+            </div>
+            <div class="filter-group">
+                <label>Status</label>
+                <select id="statusSelect">
+                    <option value="paid">Paid only</option>
+                    <option value="paid+approved">Paid + Approved</option>
+                    <option value="all">All (incl. in-flight, scheduled, etc.)</option>
+                </select>
+            </div>
+        </div>
+        <div class="search-row">
+            <label>Or search for a specific freelancer</label>
+            <input type="search" id="nameSearch" placeholder="Type a name to filter the table below…">
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats" id="stats">
+        <div class="stat">
+            <div class="stat-label">Freelancers</div>
+            <div class="stat-value" id="statFreelancers">—</div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Total paid</div>
+            <div class="stat-value" id="statTotal">—</div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Episodes completed</div>
+            <div class="stat-value" id="statEps">—</div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Avg per episode</div>
+            <div class="stat-value" id="statAvg">—</div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card" id="tableCard">
+        <div class="table-header">
+            <h3 id="tableTitle">Summary</h3>
+            <button class="btn" id="btnExport">Download CSV</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Freelancer</th>
+                    <th class="num">Invoices</th>
+                    <th class="num">Episodes</th>
+                    <th class="num">Total paid</th>
+                    <th class="num">Avg / episode</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <div class="empty-state" id="emptyState" style="display:none;">
+        <p>No rows match the current filters.</p>
+    </div>
+
+    <footer>
+        Invoices are grouped by <b>work month</b> — parsed from the invoice title (e.g. "March 2026", "032026", "03-2026"). If a title has no month, the freelancer's submission date is used as a fallback, marked in the detail view. Episode counts are derived from invoice titles; for Sam Kim and Hyerim Ko (billed hourly / by character count), ranges like "Ep 12–16" are expanded to the correct number of episodes. Runs entirely in your browser — nothing is uploaded.
+    </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    // ===================================================================
+    // State
+    // ===================================================================
+    const state = {
+        rows: [],
+        approverCounts: {},
+        activeApprovers: new Set(),
+        activeMonth: '',       // YYYY-MM
+        activeStatus: 'paid',
+        search: '',
+        expanded: new Set(),
+    };
+
+    // Pre-selected approvers from the brief
+    const DEFAULT_APPROVERS = ['Dennis Choi', 'Min Ju Huh'];
+
+    // Freelancers billed by hours/characters — flagged in the UI
+    const SPECIAL_FREELANCERS = {
+        'Sam Kim': 'hourly',
+        'Hyerim Ko': 'by char',
+        'Janelle George': 'proofreader',
+    };
+
+    const $ = id => document.getElementById(id);
+
+    function toast(msg, type = '') {
+        const t = $('toast');
+        t.textContent = msg;
+        t.className = 'toast show ' + type;
+        setTimeout(() => { t.className = 'toast ' + type; }, 2500);
+    }
+
+    // ===================================================================
+    // Episode counting from invoice title
+    // -------------------------------------------------------------------
+    // Two-stage parser:
+    //
+    //   1. PRIMARY — tokenize after an "Ep"/"Eps"/"Episode" keyword.
+    //      Handles the vast majority of titles, including compound ones:
+    //        "Eps 105-114 + 104.8 (Recap)"  → 11
+    //        "Eps 377-378, 380-381"         → 4
+    //        "Eps S3 5 - 8"                 → 4
+    //        "Eps102-106" (no space)        → 5
+    //        "Ep 44.5 (Afterword)"          → 1
+    //
+    //   2. FALLBACK — for titles that omit the keyword entirely, look
+    //      at the END of the title for a "-N-N" or " N-N" range. This
+    //      catches freelancers who format titles as "Series-Name-N-N",
+    //      e.g. "03-2026-Suhee0-240-243" → 4, and also titles like
+    //      "Epilogue 2-4" where the keyword matched only as a prefix of
+    //      "Epilogue" and produced zero tokens.
+    //
+    // SAFETY: the fallback explicitly rejects date-shaped endings (ISO
+    // dates like "2024-12-25", and ranges whose end looks like a year
+    // such as "Title 5-2024") so it never counts a date as episodes.
+    // ===================================================================
+    function countEpisodes(title) {
+        if (!title) return 1;
+
+        // --- Stage 1: keyword-based tokenizer -------------------------
+        const keyword = title.match(/\b(?:Episodes?|Eps?)\.?/i);
+        if (keyword) {
+            let tail = title.slice(keyword.index + keyword[0].length);
+            tail = tail.replace(/^\s*S\d+\s+/i, ' ');
+
+            let total = 0;
+            let pos = 0;
+            while (pos < tail.length) {
+                const rest = tail.slice(pos);
+
+                const sep = rest.match(/^(?:[\s,+&]+|\band\b)/i);
+                if (sep) { pos += sep[0].length; continue; }
+
+                const range = rest.match(/^(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)/);
+                if (range) {
+                    const start = parseFloat(range[1]);
+                    const end = parseFloat(range[2]);
+                    total += Math.max(1, Math.floor(end) - Math.floor(start) + 1);
+                    pos += range[0].length;
+                    continue;
+                }
+
+                const single = rest.match(/^\d+(?:\.\d+)?/);
+                if (single) { total += 1; pos += single[0].length; continue; }
+
+                break;
+            }
+            if (total > 0) return total;
+        }
+
+        // --- Stage 2: trailing-range fallback --------------------------
+        // Reject ISO date endings like "2024-12-25" or "2026/03/15"
+        if (/\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\s*$/.test(title)) return 1;
+
+        // Match a trailing "N-N" preceded by space or dash
+        const trailingRange = title.match(/[\s\-–](\d+)\s*[-–]\s*(\d+)\s*$/);
+        if (trailingRange) {
+            const start = parseInt(trailingRange[1], 10);
+            const end = parseInt(trailingRange[2], 10);
+            // Reject year-shaped ends (1900–2100) so "Title 5-2024" stays 1
+            const endLooksLikeYear = end >= 1900 && end <= 2100;
+            if (end >= start && !endLooksLikeYear) {
+                return Math.max(1, end - start + 1);
+            }
+        }
+
+        return 1;
+    }
+
+    // ===================================================================
+    // Date parsing (supports YYYY-MM-DD and variants)
+    // ===================================================================
+    function parseDate(str) {
+        if (!str) return null;
+        const d = new Date(str);
+        return isNaN(d) ? null : d;
+    }
+    function ym(d) {
+        if (!d) return '';
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+    function ymLabel(yyyy_mm) {
+        const [y, m] = yyyy_mm.split('-');
+        const d = new Date(Number(y), Number(m) - 1, 1);
+        return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    // ===================================================================
+    // WORK MONTH extraction (accrual-basis grouping)
+    // -------------------------------------------------------------------
+    // Priority 1: parse from invoice title — most freelancers on the team
+    //             include the work month in their invoice name.
+    // Priority 2: fall back to "Created at" (the freelancer's submission
+    //             date) — a reasonable proxy for which month's work the
+    //             invoice represents when the title doesn't say.
+    // Returns { month: 'YYYY-MM', source: 'title' | 'submission' | 'none' }
+    // ===================================================================
+    const MONTH_NAMES = {
+        january:1, february:2, march:3, april:4, may:5, june:6,
+        july:7, august:8, september:9, october:10, november:11, december:12,
+        jan:1, feb:2, mar:3, apr:4, jun:6, jul:7, aug:8,
+        sep:9, sept:9, oct:10, nov:11, dec:12,
+    };
+
+    function extractWorkMonth(row) {
+        const title = row['Invoice'] || '';
+
+        // Pattern 1: "032026" or "- 032026" (MMYYYY, no separator)
+        let m = title.match(/(?:^|\s|-\s*)(\d{2})(\d{4})\b/);
+        if (m) {
+            const mm = parseInt(m[1]), yy = parseInt(m[2]);
+            if (mm >= 1 && mm <= 12 && yy >= 2020 && yy <= 2030) {
+                return { month: `${yy}-${String(mm).padStart(2,'0')}`, source: 'title' };
+            }
+        }
+
+        // Pattern 2: "03-2026" or "03 2026" (MM-YYYY or MM YYYY)
+        m = title.match(/(?:^|\s|-)(\d{1,2})[-\s](\d{4})\b/);
+        if (m) {
+            const mm = parseInt(m[1]), yy = parseInt(m[2]);
+            if (mm >= 1 && mm <= 12 && yy >= 2020 && yy <= 2030) {
+                return { month: `${yy}-${String(mm).padStart(2,'0')}`, source: 'title' };
+            }
+        }
+
+        // Pattern 3: "March 2026", "February2026" (month-name + year)
+        m = title.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s*(\d{4})\b/i);
+        if (m) {
+            const mm = MONTH_NAMES[m[1].toLowerCase()];
+            const yy = parseInt(m[2]);
+            return { month: `${yy}-${String(mm).padStart(2,'0')}`, source: 'title' };
+        }
+
+        // Fallback: submission date (Created at)
+        const d = parseDate(row['Created at']);
+        if (d) return { month: ym(d), source: 'submission' };
+
+        return { month: null, source: 'none' };
+    }
+    function fmt$(v) {
+        return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // ===================================================================
+    // CSV upload
+    // ===================================================================
+    const csvDrop = $('csvDrop');
+    const csvInput = $('csvInput');
+
+    csvDrop.addEventListener('click', () => csvInput.click());
+    csvDrop.addEventListener('dragover', e => {
+        e.preventDefault();
+        csvDrop.classList.add('drag');
+    });
+    csvDrop.addEventListener('dragleave', () => csvDrop.classList.remove('drag'));
+    csvDrop.addEventListener('drop', e => {
+        e.preventDefault();
+        csvDrop.classList.remove('drag');
+        if (e.dataTransfer.files[0]) handleCsv(e.dataTransfer.files[0]);
+    });
+    csvInput.addEventListener('change', e => {
+        if (e.target.files[0]) handleCsv(e.target.files[0]);
+    });
+    $('csvClear').addEventListener('click', e => {
+        e.stopPropagation();
+        reset();
+    });
+
+    function handleCsv(file) {
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                state.rows = results.data;
+
+                $('csvEmpty').style.display = 'none';
+                $('csvLoaded').style.display = 'block';
+                csvDrop.classList.add('loaded');
+                $('csvName').textContent = file.name;
+                $('csvStatus').textContent = `${state.rows.length} rows loaded`;
+
+                buildFilters();
+                render();
+                toast('CSV loaded', 'success');
+            },
+            error: () => toast('Could not read the CSV', 'error'),
+        });
+    }
+
+    function reset() {
+        state.rows = [];
+        state.activeApprovers.clear();
+        state.expanded.clear();
+        csvInput.value = '';
+        $('csvEmpty').style.display = 'block';
+        $('csvLoaded').style.display = 'none';
+        csvDrop.classList.remove('loaded');
+        $('filters').classList.remove('visible');
+        $('stats').classList.remove('visible');
+        $('tableCard').classList.remove('visible');
+        $('nameSearch').value = '';
+    }
+
+    // ===================================================================
+    // Filter setup — populates approver chips and month dropdown
+    // ===================================================================
+    function buildFilters() {
+        // Count approvers, excluding blank
+        state.approverCounts = {};
+        for (const r of state.rows) {
+            const a = (r['Approver'] || '').trim();
+            if (!a) continue;
+            state.approverCounts[a] = (state.approverCounts[a] || 0) + 1;
+        }
+
+        // Sort approvers by count desc
+        const approvers = Object.keys(state.approverCounts)
+            .sort((a, b) => state.approverCounts[b] - state.approverCounts[a]);
+
+        // Render chips
+        const group = $('approverChips');
+        group.innerHTML = '';
+        state.activeApprovers = new Set(
+            DEFAULT_APPROVERS.filter(a => a in state.approverCounts)
+        );
+        approvers.forEach(a => {
+            const chip = document.createElement('button');
+            chip.className = 'chip' + (state.activeApprovers.has(a) ? ' active' : '');
+            chip.innerHTML = `${a}<span class="count">${state.approverCounts[a]}</span>`;
+            chip.addEventListener('click', () => {
+                if (state.activeApprovers.has(a)) state.activeApprovers.delete(a);
+                else state.activeApprovers.add(a);
+                chip.classList.toggle('active');
+                render();
+            });
+            group.appendChild(chip);
+        });
+
+        // Populate months — use work month (accrual basis)
+        const months = new Set();
+        for (const r of state.rows) {
+            const { month } = extractWorkMonth(r);
+            if (month) months.add(month);
+        }
+        const sortedMonths = [...months].sort().reverse();
+        const monthSel = $('monthSelect');
+        monthSel.innerHTML = '';
+        sortedMonths.forEach(m => {
+            monthSel.add(new Option(ymLabel(m), m));
+        });
+        state.activeMonth = sortedMonths[0] || '';
+        monthSel.value = state.activeMonth;
+        monthSel.onchange = e => { state.activeMonth = e.target.value; render(); };
+
+        // Status selector
+        const statusSel = $('statusSelect');
+        statusSel.onchange = e => { state.activeStatus = e.target.value; render(); };
+
+        // Name search
+        $('nameSearch').oninput = e => {
+            state.search = e.target.value.trim().toLowerCase();
+            render();
+        };
+
+        $('filters').classList.add('visible');
+    }
+
+    // ===================================================================
+    // Core: apply filters, aggregate by freelancer, render table
+    // ===================================================================
+    function render() {
+        // 1. Filter rows
+        const filtered = state.rows.filter(r => {
+            // Approver filter
+            const approver = (r['Approver'] || '').trim();
+            if (state.activeApprovers.size > 0 && !state.activeApprovers.has(approver)) {
+                return false;
+            }
+            // Status filter
+            const status = (r['Status'] || '').trim().toLowerCase();
+            if (state.activeStatus === 'paid' && status !== 'paid') return false;
+            if (state.activeStatus === 'paid+approved' &&
+                !['paid', 'approved'].includes(status)) return false;
+            if (state.activeStatus === 'all' && status === 'rejected') return false;
+            // Month filter — use WORK MONTH (accrual basis, not paid date)
+            const wm = extractWorkMonth(r);
+            if (!wm.month || wm.month !== state.activeMonth) return false;
+            // Name search
+            if (state.search) {
+                const name = (r['Name'] || '').toLowerCase();
+                if (!name.includes(state.search)) return false;
+            }
+            return true;
+        });
+
+        // 2. Aggregate by freelancer
+        const byPerson = new Map();
+        for (const r of filtered) {
+            const name = (r['Name'] || '—').trim();
+            if (!byPerson.has(name)) {
+                byPerson.set(name, {
+                    name,
+                    email: r['Email'] || '',
+                    invoices: [],
+                    episodes: 0,
+                    total: 0,
+                });
+            }
+            const agg = byPerson.get(name);
+            const amt = parseFloat((r['Amount'] || '0').replace(/[$,]/g, '')) || 0;
+            const eps = countEpisodes(r['Invoice'] || '');
+            const wm = extractWorkMonth(r);
+            agg.invoices.push({
+                date: r['Created at'] || r['Paid Date'] || '',
+                paidDate: r['Paid Date'] || '',
+                title: r['Invoice'] || '—',
+                amount: amt,
+                episodes: eps,
+                status: r['Status'] || '',
+                monthSource: wm.source,
+            });
+            agg.episodes += eps;
+            agg.total += amt;
+        }
+
+        // 3. Sort by total paid desc
+        const list = [...byPerson.values()].sort((a, b) => b.total - a.total);
+
+        // 4. Render stats
+        const statsBar = $('stats');
+        if (list.length === 0) {
+            statsBar.classList.remove('visible');
+            $('tableCard').classList.remove('visible');
+            $('emptyState').style.display = 'block';
+            return;
+        }
+        statsBar.classList.add('visible');
+        $('emptyState').style.display = 'none';
+
+        const grandTotal = list.reduce((s, p) => s + p.total, 0);
+        const grandEps = list.reduce((s, p) => s + p.episodes, 0);
+        const grandAvg = grandEps ? grandTotal / grandEps : 0;
+
+        $('statFreelancers').innerHTML = list.length;
+        $('statTotal').innerHTML = `$${grandTotal.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+        $('statEps').innerHTML = `${grandEps}<span class="unit">eps</span>`;
+        $('statAvg').innerHTML = `$${grandAvg.toLocaleString('en-US', { maximumFractionDigits: 0 })}<span class="unit">/ep</span>`;
+
+        // 5. Render table
+        $('tableCard').classList.add('visible');
+        $('tableTitle').textContent = `${ymLabel(state.activeMonth)} — ${list.length} freelancer${list.length > 1 ? 's' : ''}`;
+
+        const body = $('tableBody');
+        body.innerHTML = '';
+        for (const p of list) {
+            const avg = p.episodes ? p.total / p.episodes : 0;
+            const isOpen = state.expanded.has(p.name);
+            const special = SPECIAL_FREELANCERS[p.name];
+
+            // Summary row
+            const tr = document.createElement('tr');
+            tr.className = 'summary' + (isOpen ? ' open' : '');
+            tr.innerHTML = `
+                <td class="name">
+                    ${p.name}
+                    ${special ? `<span class="special">${special}</span>` : ''}
+                    <span class="sub-val">${p.email}</span>
+                </td>
+                <td class="num">${p.invoices.length}</td>
+                <td class="num">${p.episodes}</td>
+                <td class="num">${fmt$(p.total)}</td>
+                <td class="num">${fmt$(avg)}</td>
+            `;
+            tr.addEventListener('click', () => {
+                if (state.expanded.has(p.name)) state.expanded.delete(p.name);
+                else state.expanded.add(p.name);
+                render();
+            });
+            body.appendChild(tr);
+
+            // Detail row (invoice list)
+            const detail = document.createElement('tr');
+            detail.className = 'detail' + (isOpen ? ' open' : '');
+            const sortedInvs = [...p.invoices].sort((a, b) =>
+                (a.date || '').localeCompare(b.date || ''));
+            const rowsHtml = sortedInvs.map(inv => {
+                const flag = inv.monthSource === 'submission'
+                    ? '<span title="Month inferred from submission date (no month in invoice title)" style="font-size:10px;color:var(--warn);margin-left:6px;">↪ from submission</span>'
+                    : '';
+                return `
+                <div class="invoice-row">
+                    <div class="invoice-cell date">${inv.date ? inv.date.slice(0,10) : '—'}</div>
+                    <div class="invoice-cell title">${escapeHtml(inv.title)}${flag}</div>
+                    <div class="invoice-cell eps">${inv.episodes} ep</div>
+                    <div class="invoice-cell amt">${fmt$(inv.amount)}</div>
+                </div>
+            `;
+            }).join('');
+            detail.innerHTML = `
+                <td colspan="5">
+                    <div class="detail-inner">
+                        <h4>Invoices · ${p.invoices.length}</h4>
+                        <div class="invoice-list">${rowsHtml}</div>
+                    </div>
+                </td>
+            `;
+            body.appendChild(detail);
+        }
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g,
+            c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // ===================================================================
+    // Export filtered summary as CSV
+    // ===================================================================
+    $('btnExport').addEventListener('click', () => {
+        // Re-run the aggregation on currently-visible data
+        const rows = [['Freelancer', 'Email', 'Invoices', 'Episodes', 'Total Paid (USD)', 'Avg per Episode (USD)']];
+        document.querySelectorAll('tr.summary').forEach(tr => {
+            const cells = tr.querySelectorAll('td');
+            const nameCell = cells[0];
+            const name = nameCell.childNodes[0].textContent.trim();
+            const emailEl = nameCell.querySelector('.sub-val');
+            const email = emailEl ? emailEl.textContent : '';
+            rows.push([
+                name, email,
+                cells[1].textContent.trim(),
+                cells[2].textContent.trim(),
+                cells[3].textContent.trim().replace(/[$,]/g, ''),
+                cells[4].textContent.trim().replace(/[$,]/g, ''),
+            ]);
+        });
+        const csv = rows.map(r => r.map(v => {
+            const s = String(v);
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        }).join(',')).join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `freelancer_expense_${state.activeMonth}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('CSV downloaded', 'success');
+    });
+</script>
+</body>
+</html>
