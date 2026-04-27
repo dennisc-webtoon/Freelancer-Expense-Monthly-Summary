@@ -644,6 +644,15 @@
                 const sep = rest.match(/^(?:[\s,+&]+|\band\b)/i);
                 if (sep) { pos += sep[0].length; continue; }
 
+                // Range to "EP"/"Epilogue" — e.g. "Eps 28-EP" means
+                // Ep 28 + Epilogue (two episodes).
+                const rngToEp = rest.match(/^(\d+(?:\.\d+)?)\s*[-–]\s*(?:EP|Epilogue)\b/i);
+                if (rngToEp) {
+                    total += 2;
+                    pos += rngToEp[0].length;
+                    continue;
+                }
+
                 const range = rest.match(/^(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)/);
                 if (range) {
                     const start = parseFloat(range[1]);
@@ -655,6 +664,18 @@
 
                 const single = rest.match(/^\d+(?:\.\d+)?/);
                 if (single) { total += 1; pos += single[0].length; continue; }
+
+                // Standalone "EP" or "Epilogue" as its own counted unit
+                // (e.g. "Eps 50, EP" → 2). The leading word boundary on
+                // the keyword regex above already ensures we don't match
+                // "Epilogue" in titles like "Season 1 Epilogue" where it
+                // appears WITHOUT a preceding "Ep/Eps" keyword.
+                const epWord = rest.match(/^(?:EP|Epilogue)\b/i);
+                if (epWord) {
+                    total += 1;
+                    pos += epWord[0].length;
+                    continue;
+                }
 
                 break;
             }
