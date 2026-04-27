@@ -228,11 +228,14 @@
     /* Stats bar */
     .stats {
         display: none;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(5, 1fr);
         gap: 12px;
         margin-bottom: 24px;
     }
     .stats.visible { display: grid; }
+    @media (max-width: 900px) {
+        .stats { grid-template-columns: repeat(3, 1fr); }
+    }
     @media (max-width: 600px) {
         .stats { grid-template-columns: 1fr 1fr; }
     }
@@ -524,6 +527,10 @@
         <div class="stat">
             <div class="stat-label">Freelancers</div>
             <div class="stat-value" id="statFreelancers">—</div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Series translated</div>
+            <div class="stat-value" id="statSeries">—</div>
         </div>
         <div class="stat">
             <div class="stat-label">Total paid</div>
@@ -973,9 +980,11 @@
 
         const grandTotal = list.reduce((s, p) => s + p.total, 0);
         const grandEps = list.reduce((s, p) => s + p.episodes, 0);
+        const grandSeries = list.reduce((s, p) => s + p.invoices.length, 0);
         const grandAvg = grandEps ? grandTotal / grandEps : 0;
 
         $('statFreelancers').innerHTML = list.length;
+        $('statSeries').innerHTML = grandSeries;
         $('statTotal').innerHTML = `$${grandTotal.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
         $('statEps').innerHTML = `${grandEps}<span class="unit">eps</span>`;
         $('statAvg').innerHTML = `$${grandAvg.toLocaleString('en-US', { maximumFractionDigits: 0 })}<span class="unit">/ep</span>`;
